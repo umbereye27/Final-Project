@@ -1,0 +1,88 @@
+import axios from "axios";
+import * as SecureStore from "expo-secure-store";
+
+const API_URL = "http://192.168.1.10:5000/api"; // Replace with your actual API URL
+
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+});
+
+// Request Interceptor
+apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await SecureStore.getItemAsync("userToken");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Error accessing secure storage:", error);
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export const authService = {
+  login: async (email, password) => {
+    try {
+      const response = await apiClient.post("/auth/signin", {
+        email,
+        password,
+      });
+
+      if (!response.data.user.role) {
+        throw new Error("User role not specified in response");
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
+    }
+  },
+
+  logout: async () => {
+    try {
+      await SecureStore.deleteItemAsync("userToken");
+      await SecureStore.deleteItemAsync("userDetails");
+    } catch (error) {
+      console.error("Logout error:", error);
+      throw error;
+    }
+  },
+
+  register: async (username, email, password, confirmPassword, role) => {
+    try {
+      const response = await apiClient.post("/auth/signup", {
+        username,
+        email,
+        confirmPassword,
+        password,
+        role,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Registration error:", error);
+      throw error;
+    }
+  },
+
+  isAuthenticated: async () => {
+    try {
+      const token = await SecureStore.getItemAsync("userToken");
+      return !!token;
+    } catch (error) {
+      console.error("Auth check error:", error);
+      return false;
+    }
+  },
+};
+
+export default apiClient;
