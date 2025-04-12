@@ -32,7 +32,7 @@ const SignInScreen = () => {
       if (data.user.role === "admin") {
         navigation.replace("Dashboard");
       } else {
-        navigation.replace("Home"); // Changed from "MainApp" to "Home"
+        navigation.replace("Home");
       }
     },
     onError: (error) => {
@@ -142,9 +142,6 @@ const SignInScreen = () => {
           <Text style={styles.signupText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
             <Text style={styles.signupLinkText}>Sign Up</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate("Home")}>
-            <Text style={styles.signupLinkText}> Home</Text>
           </TouchableOpacity>
         </View>
       </View>
