@@ -7,9 +7,9 @@ export const APP_CONSTANTS = {
   MIN_USERNAME_LENGTH: 3,
   DEFAULT_ROLE: "user",
   ROLES: [
-    { label: "User", value: "user" },
-    { label: "Admin", value: "admin" },
-    { label: "Doctor", value: "doctor" }
+    { label: "User", value: "Role" },
+    // { label: "Admin", value: "admin" },
+    // { label: "Doctor", value: "doctor" }
   ]
 };
 

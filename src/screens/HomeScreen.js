@@ -24,7 +24,7 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme();
 
   // Define your API endpoint - update with your actual server IP
-  const API_URL = "http://172.31.212.232:4000/predict";
+  const API_URL = "http://172.20.10.4:4000/predict";
 
   // Recommendations for each skin condition
   const recommendations = {
@@ -295,12 +295,12 @@ export default function SkinLesionDetectorApp({ navigation }) {
               <Text style={[styles.resultText, { color: theme.text }]}>
                 {result.prediction}
               </Text>
-              <Text style={[styles.confidenceText, { color: theme.textSecondary }]}>
+              <Text style={[styles.confidenceText, { color:'yellow' }]}>
                 Confidence: {result.confidence}%
               </Text>
               
               {/* Disclaimer */}
-              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>
+              <Text style={[styles.disclaimer, { color: 'white' }]}>
                 This is an AI-assisted diagnosis and should not replace professional medical advice.
               </Text>
             </View>
@@ -524,10 +524,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 5,
+    
   },
   confidenceText: {
     fontSize: 14,
     marginBottom: 10,
+    // color: '#FF0000',
   },
   disclaimer: {
     fontSize: 12,

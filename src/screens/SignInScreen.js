@@ -102,6 +102,7 @@ const SignInScreen = () => {
         <TextInput
           style={styles.input}
           placeholder="Enter your email"
+          placeholderTextColor="#888" 
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -112,6 +113,7 @@ const SignInScreen = () => {
           <TextInput
             style={styles.passwordInput}
             placeholder="Enter your password"
+            placeholderTextColor="#888" 
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!passwordVisible}
@@ -243,10 +245,11 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 10,
+  
   },
   forgotPasswordText: {
     alignSelf: "flex-end",
-    color: "#007bff",
+    color: "black",
     marginBottom: 15,
   },
   loginButton: {

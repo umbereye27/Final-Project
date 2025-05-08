@@ -18,13 +18,17 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "black",
+    color: "#007bff",
     marginBottom: 10,
+    
+    // backgroundColor:'red',
   },
   subtitleText: {
     fontSize: 14,
     color: "gray",
     textAlign: "center",
+    // backgroundColor:'red',
+
   },
   formContainer: {
     width: "100%",
@@ -39,6 +43,7 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: "black",
+    // backgroundColor: 'red'
   },
   passwordInputContainer: {
     flexDirection: "row",

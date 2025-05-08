@@ -158,6 +158,7 @@ const SignUpScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Username"
+              placeholderTextColor="#888" 
               value={formData.username}
               onChangeText={(text) =>
                 setFormData({ ...formData, username: text })
@@ -170,6 +171,7 @@ const SignUpScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Email Address"
+              placeholderTextColor="#888" 
               value={formData.email}
               onChangeText={(text) => setFormData({ ...formData, email: text })}
               keyboardType="email-address"
@@ -191,6 +193,7 @@ const SignUpScreen = ({ navigation }) => {
             <TextInput
               style={styles.passwordInput}
               placeholder="Password"
+              placeholderTextColor="#888" 
               value={formData.password}
               onChangeText={(text) =>
                 setFormData({ ...formData, password: text })
@@ -203,6 +206,7 @@ const SignUpScreen = ({ navigation }) => {
             <TextInput
               style={styles.passwordInput}
               placeholder="Confirm Password"
+              placeholderTextColor="#888" 
               value={formData.confirmPassword}
               onChangeText={(text) =>
                 setFormData({ ...formData, confirmPassword: text })
@@ -251,10 +255,11 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   welcomeText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "black",
-    marginBottom: 10,
+    fontSize: 30,
+    padding: 20,
+    fontWeight: "900",
+    color: "#151B5E",
+    fontFamily: "Poltawski Nowy"
   },
   subtitleText: {
     fontSize: 14,
@@ -264,6 +269,9 @@ const styles = StyleSheet.create({
   formContainer: {
     width: "100%",
   },
+//   placeholder:{
+// color:'red',
+//   },
   inputContainer: {
     marginBottom: 15,
   },
@@ -273,7 +281,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     fontSize: 16,
-    color: 'black',
+
+    // backgroundColor:"red",
   },
   passwordInputContainer: {
     flexDirection: "row",
@@ -343,7 +352,8 @@ const styles = StyleSheet.create({
   },
   roleSelectorText: {
     fontSize: 16,
-    color: "#333",
+    // placeholderTextColor="#888" 
+    color: "#888" ,
   },
   modalOverlay: {
     flex: 1,

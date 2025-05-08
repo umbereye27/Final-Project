@@ -2,6 +2,7 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { ThemeProvider } from "./src/theme/ThemeContext";
+import * as ImagePicker from 'expo-image-picker';
 
 const queryClient = new QueryClient({
   defaultOptions: {
