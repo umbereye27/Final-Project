@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-const API_URL = "http://172.20.10.4:5001/api";
+const API_URL = "http://192.168.1.64:5001/api";
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -35,6 +35,7 @@ export const authService = {
         email,
         password,
       });
+      console.log("Response", response.data);
 
       if (!response.data.user.role) {
         throw new Error("User role not specified in response");
