@@ -23,7 +23,7 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme();
 
   // Define your API endpoint - update with your actual server IP
-  const API_URL = "http://172.20.10.4:4000/predict";
+  const API_URL = "http://192.168.1.64:4000/predict";
 
   const pickImage = async () => {
     setIsLoading(true);
