@@ -23,13 +23,12 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme();
 
   // Define your API endpoint - update with your actual server IP
-  const API_URL = "http://192.168.1.64:4000/predict";
+  const API_URL = "http://172.20.10.4:4000/predict";
 
   const pickImage = async () => {
     setIsLoading(true);
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== "granted") {
         Alert.alert(
@@ -41,7 +40,6 @@ export default function SkinLesionDetectorApp({ navigation }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
@@ -49,7 +47,6 @@ export default function SkinLesionDetectorApp({ navigation }) {
 
       if (!result.canceled) {
         setImage({ uri: result.assets[0].uri });
-        // Upload image to server
         await uploadImage(result.assets[0].uri);
       } else {
         setIsLoading(false);

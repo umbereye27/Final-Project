@@ -88,38 +88,7 @@ const ResultScreen = ({ route, navigation }) => {
             estimatedRecovery: "6-12 weeks",
             contagiousPeriod: "Low human-to-human transmission risk"
         },
-        Healthy: {
-            condition: "Healthy Skin",
-            severity: "None",
-            description: "Your skin appears healthy with no signs of concerning lesions or infections.",
-            immediateActions: [
-                "Continue your current skincare routine",
-                "Maintain good hygiene practices",
-                "Monitor your skin regularly for any changes",
-                "Protect your skin from excessive sun exposure"
-            ],
-            medications: [
-                "No medications needed",
-                "Continue any prescribed skincare products",
-                "Use sunscreen daily (SPF 30 or higher)"
-            ],
-            whenToSeekHelp: [
-                "Any new or changing moles or lesions",
-                "Persistent skin irritation or rashes",
-                "Annual skin check-ups if you have risk factors",
-                "Any concerning skin changes"
-            ],
-            prevention: [
-                "Regular self-examination of skin",
-                "Sun protection and avoiding tanning beds",
-                "Healthy diet and adequate hydration",
-                "Professional skin screenings as recommended"
-            ],
-            urgencyLevel: "none",
-            estimatedRecovery: "N/A - Maintain current health",
-            contagiousPeriod: "Not applicable"
-        },
-        HFMD: {
+         HFMD: {
             condition: "Hand, Foot, and Mouth Disease",
             severity: "Medium",
             description: "A common viral infection causing sores in the mouth and rashes on hands and feet, primarily affecting children.",
@@ -151,6 +120,38 @@ const ResultScreen = ({ route, navigation }) => {
             estimatedRecovery: "7-10 days",
             contagiousPeriod: "Most contagious during first week of illness"
         },
+        Healthy: {
+            condition: "Healthy Skin",
+            severity: "None",
+            description: "Your skin appears healthy with no signs of concerning lesions or infections.",
+            immediateActions: [
+                "Continue your current skincare routine",
+                "Maintain good hygiene practices",
+                "Monitor your skin regularly for any changes",
+                "Protect your skin from excessive sun exposure"
+            ],
+            medications: [
+                "No medications needed",
+                "Continue any prescribed skincare products",
+                "Use sunscreen daily (SPF 30 or higher)"
+            ],
+            whenToSeekHelp: [
+                "Any new or changing moles or lesions",
+                "Persistent skin irritation or rashes",
+                "Annual skin check-ups if you have risk factors",
+                "Any concerning skin changes"
+            ],
+            prevention: [
+                "Regular self-examination of skin",
+                "Sun protection and avoiding tanning beds",
+                "Healthy diet and adequate hydration",
+                "Professional skin screenings as recommended"
+            ],
+            urgencyLevel: "none",
+            estimatedRecovery: "N/A - Maintain current health",
+            contagiousPeriod: "Not applicable"
+        },
+       
         Measles: {
             condition: "Measles (Rubeola)",
             severity: "High",
@@ -265,7 +266,7 @@ const ResultScreen = ({ route, navigation }) => {
     const saveResult = async () => {
         setIsSaving(true);
         try {
-            const response = await fetch("http://192.168.1.64:5001/api/results", {
+            const response = await fetch("http://172.20.10.4:5001/api/results", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

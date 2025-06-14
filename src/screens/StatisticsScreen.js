@@ -28,7 +28,7 @@ const StatisticsScreen = ({ navigation }) => {
 
     const fetchStatistics = async () => {
         try {
-            const response = await fetch("http://192.168.1.64:5001/api/results/statistics");
+            const response = await fetch("http://172.20.10.4:5001/api/results/statistics");
             const data = await response.json();
             console.log("Statistics data:", data);
             
@@ -48,7 +48,7 @@ const StatisticsScreen = ({ navigation }) => {
     const fetchPredictionResults = async (prediction) => {
         setSelectedPrediction(prediction);
         try {
-            const response = await fetch(`http://192.168.1.64:5001/api/results?prediction=${prediction}`);
+            const response = await fetch(`http://172.20.10.4:5001/api/results?prediction=${prediction}`);
             const data = await response.json();
 
             if (data.success) {
