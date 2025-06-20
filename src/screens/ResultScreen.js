@@ -265,7 +265,7 @@ const ResultScreen = ({ route, navigation }) => {
     const saveResult = async () => {
         setIsSaving(true);
         try {
-            const response = await fetch("http://192.168.1.64:5001/api/results", {
+            const response = await fetch("http://192.168.4.80:5001/api/results", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

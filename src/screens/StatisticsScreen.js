@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -8,49 +8,132 @@ import {
     ActivityIndicator,
     Dimensions,
     RefreshControl,
+    Alert,
+    Animated,
+    FlatList,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
+import * as SecureStore from "expo-secure-store";
 import { useTheme } from "../theme/ThemeContext";
 import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width: screenWidth } = Dimensions.get("window");
 
 const StatisticsScreen = ({ navigation }) => {
-    const { theme } = useTheme();
+    const { theme, isDark } = useTheme();
     const [statistics, setStatistics] = useState(null);
+    const [timeBasedStats, setTimeBasedStats] = useState(null);
+    const [topUsers, setTopUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedPeriod, setSelectedPeriod] = useState('daily');
     const [selectedPrediction, setSelectedPrediction] = useState(null);
     const [predictionResults, setPredictionResults] = useState(null);
-    const screenWidth = Dimensions.get("window").width;
+    const [fadeAnim] = useState(new Animated.Value(0));
+    const [slideAnim] = useState(new Animated.Value(50));
+
+    const periods = [
+        { key: 'daily', label: 'Daily', icon: 'today' },
+        { key: 'weekly', label: 'Weekly', icon: 'calendar' },
+        { key: 'monthly', label: 'Monthly', icon: 'calendar-outline' },
+        { key: 'yearly', label: 'Yearly', icon: 'calendar-clear' },
+    ];
 
     useEffect(() => {
-        fetchStatistics();
+        loadAllData();
+
+        // Animate entrance
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+        ]).start();
     }, []);
+
+    useEffect(() => {
+        if (selectedPeriod) {
+            fetchTimeBasedStats(selectedPeriod);
+        }
+    }, [selectedPeriod]);
+
+    const loadAllData = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([
+                fetchStatistics(),
+                fetchTimeBasedStats(selectedPeriod),
+            ]);
+        } catch (error) {
+            console.error("Error loading dashboard data:", error);
+            Alert.alert("Error", "Failed to load statistics data");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchStatistics = async () => {
         try {
-            const response = await fetch("http://192.168.1.64:5001/api/results/statistics");
+            const token = await SecureStore.getItemAsync("userToken");
+            const response = await fetch("http://192.168.4.80:5001/api/results/statistics", {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
             const data = await response.json();
-            console.log("Statistics data:", data);
-            
             if (data.success) {
                 setStatistics(data.data);
+                setTopUsers(data.data.topUsers || []);
             } else {
                 throw new Error("Failed to fetch statistics");
             }
         } catch (error) {
-            console.error("Error fetching statistics:", error.message);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
+            console.error("Error fetching statistics:", error);
+        }
+    };
+
+    const fetchTimeBasedStats = async (period) => {
+        try {
+            const token = await SecureStore.getItemAsync("userToken");
+            const response = await fetch(`http://192.168.4.80:5001/api/results/stats/${period}`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setTimeBasedStats(data.data);
+            } else {
+                throw new Error(`Failed to fetch ${period} statistics`);
+            }
+        } catch (error) {
+            console.error(`Error fetching ${period} statistics:`, error);
         }
     };
 
     const fetchPredictionResults = async (prediction) => {
         setSelectedPrediction(prediction);
         try {
-            const response = await fetch(`http://192.168.1.64:5001/api/results?prediction=${prediction}`);
-            const data = await response.json();
+            const token = await SecureStore.getItemAsync("userToken");
+            const response = await fetch(`http://192.168.4.80:5001/api/results/prediction/${prediction}`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
 
+            const data = await response.json();
             if (data.success) {
                 setPredictionResults(data);
             } else {
@@ -62,57 +145,130 @@ const StatisticsScreen = ({ navigation }) => {
         }
     };
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        fetchStatistics();
-    };
+        await loadAllData();
+        setRefreshing(false);
+    }, [selectedPeriod]);
 
-    const getChartConfig = () => {
-        return {
-            backgroundColor: theme.surface,
-            backgroundGradientFrom: theme.surface,
-            backgroundGradientTo: theme.surface,
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(${theme.isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(${theme.isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
-            style: {
-                borderRadius: 16,
-            },
-            propsForDots: {
-                r: "6",
-                strokeWidth: "2",
-                stroke: theme.primary,
-            },
-        };
-    };
+    const getChartConfig = () => ({
+        backgroundColor: theme.surface,
+        backgroundGradientFrom: theme.surface,
+        backgroundGradientTo: theme.surface,
+        decimalPlaces: 0,
+        color: (opacity = 1) => `rgba(${isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(${isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
+        style: { borderRadius: 16 },
+        propsForDots: {
+            r: "6",
+            strokeWidth: "2",
+            stroke: theme.primary,
+        },
+    });
 
-    const renderDailyTrendsChart = () => {
-        if (!statistics || !statistics.dailyTrends || statistics.dailyTrends.length === 0) {
+    const StatCard = ({ icon, value, label, color, subtitle, gradient }) => (
+        <Animated.View
+            style={[
+                styles.statCard,
+                {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }]
+                }
+            ]}
+        >
+            <LinearGradient
+                colors={gradient || [color, color]}
+                style={styles.statCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            >
+                <Icon name={icon} size={28} color="white" style={styles.statIcon} />
+                <Text style={styles.statValue}>{value}</Text>
+                <Text style={styles.statLabel}>{label}</Text>
+                {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+            </LinearGradient>
+        </Animated.View>
+    );
+
+    const PeriodSelector = () => (
+        <Animated.View
+            style={[
+                styles.periodSelector,
+                {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }]
+                }
+            ]}
+        >
+            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 12 }]}>
+                Time Period Analysis
+            </Text>
+            <View style={styles.periodButtons}>
+                {periods.map((period) => (
+                    <TouchableOpacity
+                        key={period.key}
+                        style={[
+                            styles.periodButton,
+                            {
+                                backgroundColor: selectedPeriod === period.key ? theme.primary : theme.surface,
+                                borderColor: selectedPeriod === period.key ? theme.primary : theme.border,
+                            }
+                        ]}
+                        onPress={() => setSelectedPeriod(period.key)}
+                    >
+                        <Icon
+                            name={period.icon}
+                            size={16}
+                            color={selectedPeriod === period.key ? 'white' : theme.text}
+                        />
+                        <Text style={[
+                            styles.periodButtonText,
+                            { color: selectedPeriod === period.key ? 'white' : theme.text }
+                        ]}>
+                            {period.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </Animated.View>
+    );
+
+    const renderTimeBasedChart = () => {
+        if (!timeBasedStats || !timeBasedStats.timeSeriesData || timeBasedStats.timeSeriesData.length === 0) {
             return (
                 <View style={[styles.chartPlaceholder, { backgroundColor: theme.surface }]}>
-                    <Text style={{ color: theme.textSecondary }}>No trend data available</Text>
+                    <Icon name="analytics-outline" size={48} color={theme.textSecondary} />
+                    <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
+                        No {selectedPeriod} data available
+                    </Text>
                 </View>
             );
         }
 
-        // Format data for the chart
+        const formatLabel = (item) => {
+            switch (selectedPeriod) {
+                case 'daily':
+                    return `${item._id.month}/${item._id.day}`;
+                case 'weekly':
+                    return `W${item._id.week}`;
+                case 'monthly':
+                    return `${item._id.month}/${item._id.year.toString().slice(-2)}`;
+                case 'yearly':
+                    return item._id.year.toString();
+                default:
+                    return '';
+            }
+        };
+
         const data = {
-            labels: statistics.dailyTrends.map(item =>
-                `${item._id.month}/${item._id.day}`
-            ).slice(-7), // Show last 7 days
+            labels: timeBasedStats.timeSeriesData.slice(-10).map(formatLabel),
             datasets: [
                 {
-                    data: statistics.dailyTrends.map(item => item.count).slice(-7),
-                    color: (opacity = 1) => `rgba(71, 136, 255, ${opacity})`,
-                    strokeWidth: 2,
-                },
-                {
-                    data: statistics.dailyTrends.map(item => item.avgConfidence / 20).slice(-7), // Scale down to fit
-                    color: (opacity = 1) => `rgba(255, 165, 0, ${opacity})`,
-                    strokeWidth: 2,
+                    data: timeBasedStats.timeSeriesData.slice(-10).map(item => item.count),
+                    color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+                    strokeWidth: 3,
                 },
             ],
-            legend: ["Scans", "Avg. Confidence (÷20)"]
         };
 
         return (
@@ -123,27 +279,33 @@ const StatisticsScreen = ({ navigation }) => {
                 chartConfig={getChartConfig()}
                 bezier
                 style={styles.chart}
+                withDots={true}
+                withShadow={false}
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
             />
         );
     };
 
     const renderPredictionBreakdownChart = () => {
-        if (!statistics || !statistics.predictionBreakdown || statistics.predictionBreakdown.length === 0) {
+        if (!statistics?.predictionBreakdown || statistics.predictionBreakdown.length === 0) {
             return (
                 <View style={[styles.chartPlaceholder, { backgroundColor: theme.surface }]}>
-                    <Text style={{ color: theme.textSecondary }}>No prediction data available</Text>
+                    <Icon name="bar-chart-outline" size={48} color={theme.textSecondary} />
+                    <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
+                        No prediction data available
+                    </Text>
                 </View>
             );
         }
 
-        // Format data for the chart
         const data = {
-            labels: statistics.predictionBreakdown.map(item => item._id),
-            datasets: [
-                {
-                    data: statistics.predictionBreakdown.map(item => item.count),
-                },
-            ],
+            labels: statistics.predictionBreakdown.map(item =>
+                item._id.length > 8 ? item._id.substring(0, 8) + '...' : item._id
+            ),
+            datasets: [{
+                data: statistics.predictionBreakdown.map(item => item.count),
+            }],
         };
 
         return (
@@ -155,38 +317,34 @@ const StatisticsScreen = ({ navigation }) => {
                 chartConfig={{
                     ...getChartConfig(),
                     barPercentage: 0.7,
-                    color: (opacity = 1) => `rgba(71, 136, 255, ${opacity})`,
+                    color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
                 }}
                 style={styles.chart}
                 showValuesOnTopOfBars
+                fromZero
             />
         );
     };
 
     const renderPredictionDistributionChart = () => {
-        if (!statistics || !statistics.predictionBreakdown || statistics.predictionBreakdown.length === 0) {
+        if (!statistics?.predictionBreakdown || statistics.predictionBreakdown.length === 0) {
             return (
                 <View style={[styles.chartPlaceholder, { backgroundColor: theme.surface }]}>
-                    <Text style={{ color: theme.textSecondary }}>No distribution data available</Text>
+                    <Icon name="pie-chart-outline" size={48} color={theme.textSecondary} />
+                    <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
+                        No distribution data available
+                    </Text>
                 </View>
             );
         }
 
-        // Generate colors for pie chart
-        const generateColor = (index) => {
-            const colors = [
-                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-                '#FF9F40', '#8AC926', '#1982C4', '#6A4C93', '#FF595E'
-            ];
-            return colors[index % colors.length];
-        };
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
-        // Format data for the chart
         const data = statistics.predictionBreakdown.map((item, index) => ({
             name: item._id,
             count: item.count,
-            color: generateColor(index),
-            legendFontColor: theme.isDark ? '#FFF' : '#333',
+            color: colors[index % colors.length],
+            legendFontColor: theme.text,
             legendFontSize: 12,
         }));
 
@@ -205,58 +363,134 @@ const StatisticsScreen = ({ navigation }) => {
         );
     };
 
-    const renderPredictionDetails = () => {
-        if (!predictionResults) return null;
+    const TopUserCard = ({ user, index, rank }) => (
+        <Animated.View
+            style={[
+                styles.topUserCard,
+                {
+                    backgroundColor: theme.surface,
+                    opacity: fadeAnim,
+                    transform: [{
+                        translateY: slideAnim.interpolate({
+                            inputRange: [0, 50],
+                            outputRange: [0, 50 + (index * 10)],
+                        })
+                    }]
+                }
+            ]}
+        >
+            <View style={styles.rankBadge}>
+                <Text style={styles.rankText}>#{rank}</Text>
+            </View>
+
+            <View style={styles.userInfo}>
+                <Text style={[styles.topUserName, { color: theme.text }]}>
+                    {user.username || 'Unknown User'}
+                </Text>
+                <Text style={[styles.topUserEmail, { color: theme.textSecondary }]}>
+                    {user.email}
+                </Text>
+                <View style={styles.userStats}>
+                    <View style={styles.userStatItem}>
+                        <Text style={[styles.userStatValue, { color: theme.primary }]}>
+                            {user.count}
+                        </Text>
+                        <Text style={[styles.userStatLabel, { color: theme.textSecondary }]}>
+                            Scans
+                        </Text>
+                    </View>
+                    <View style={styles.userStatItem}>
+                        <Text style={[styles.userStatValue, { color: theme.primary }]}>
+                            {user.avgConfidence?.toFixed(1) || '0.0'}%
+                        </Text>
+                        <Text style={[styles.userStatLabel, { color: theme.textSecondary }]}>
+                            Avg. Confidence
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={[
+                styles.roleBadge,
+                { backgroundColor: user.role === 'admin' ? '#FF6B6B' : '#4CAF50' }
+            ]}>
+                <Text style={styles.roleBadgeText}>
+                    {user.role?.toUpperCase() || 'USER'}
+                </Text>
+            </View>
+        </Animated.View>
+    );
+
+    const PredictionDetailModal = () => {
+        if (!selectedPrediction || !predictionResults) return null;
 
         return (
-            <View style={[styles.detailsContainer, { backgroundColor: theme.surface }]}>
-                <View style={styles.detailsHeader}>
-                    <Text style={[styles.detailsTitle, { color: theme.text }]}>
-                        {selectedPrediction} Results
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={() => {
-                            setSelectedPrediction(null);
-                            setPredictionResults(null);
-                        }}
-                    >
-                        <Icon name="close" size={20} color={theme.text} />
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.detailsSubtitle, { color: theme.textSecondary }]}>
-                    Total: {predictionResults.pagination.totalResults} result(s)
-                </Text>
-
-                <ScrollView style={styles.resultsList}>
-                    {predictionResults.data.map((result, index) => (
-                        <View
-                            key={result._id}
-                            style={[
-                                styles.resultItem,
-                                { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
-                            ]}
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                <Animated.View
+                    style={[
+                        styles.modalContent,
+                        {
+                            backgroundColor: theme.surface,
+                            transform: [{
+                                translateY: fadeAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [300, 0],
+                                })
+                            }]
+                        }
+                    ]}
+                >
+                    <View style={styles.modalHeader}>
+                        <Text style={[styles.modalTitle, { color: theme.text }]}>
+                            {selectedPrediction} Results
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => {
+                                setSelectedPrediction(null);
+                                setPredictionResults(null);
+                            }}
                         >
-                            <View style={styles.resultItemHeader}>
-                                <Text style={[styles.resultItemTitle, { color: theme.text }]}>
-                                    {result.prediction}
-                                </Text>
-                                <Text style={[styles.resultItemDate, { color: theme.textSecondary }]}>
-                                    {new Date(result.createdAt).toLocaleDateString()}
-                                </Text>
+                            <Icon name="close" size={24} color={theme.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+                        Total: {predictionResults.pagination?.totalResults || predictionResults.data?.length || 0} result(s)
+                    </Text>
+
+                    <FlatList
+                        data={predictionResults.data || []}
+                        keyExtractor={(item) => item._id}
+                        renderItem={({ item }) => (
+                            <View style={[
+                                styles.resultItem,
+                                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                            ]}>
+                                <View style={styles.resultHeader}>
+                                    <Text style={[styles.resultPrediction, { color: theme.text }]}>
+                                        {item.prediction}
+                                    </Text>
+                                    <Text style={[styles.resultDate, { color: theme.textSecondary }]}>
+                                        {new Date(item.createdAt).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                                <View style={styles.resultDetails}>
+                                    <Text style={[styles.resultConfidence, { color: theme.primary }]}>
+                                        Confidence: {item.confidence?.toFixed(2) || '0.00'}%
+                                    </Text>
+                                    {item.user && (
+                                        <Text style={[styles.resultUser, { color: theme.textSecondary }]}>
+                                            User: {item.user.username || item.user.email}
+                                        </Text>
+                                    )}
+                                </View>
                             </View>
-                            <View style={styles.resultItemContent}>
-                                <Text style={[styles.resultItemLabel, { color: theme.textSecondary }]}>
-                                    Confidence:
-                                </Text>
-                                <Text style={[styles.resultItemValue, { color: theme.text }]}>
-                                    {result.confidence.toFixed(2)}%
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
-                </ScrollView>
+                        )}
+                        style={styles.resultsList}
+                        showsVerticalScrollIndicator={false}
+                    />
+                </Animated.View>
             </View>
         );
     };
@@ -266,7 +500,7 @@ const StatisticsScreen = ({ navigation }) => {
             <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
                 <ActivityIndicator size="large" color={theme.primary} />
                 <Text style={[styles.loadingText, { color: theme.text }]}>
-                    Loading statistics...
+                    Loading comprehensive analytics...
                 </Text>
             </View>
         );
@@ -274,6 +508,7 @@ const StatisticsScreen = ({ navigation }) => {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
+            {/* Header */}
             <View style={[styles.header, { backgroundColor: theme.surface }]}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -282,7 +517,7 @@ const StatisticsScreen = ({ navigation }) => {
                     <Icon name="arrow-back" size={24} color={theme.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: theme.text }]}>
-                    Analysis Statistics
+                    Analytics Dashboard
                 </Text>
                 <TouchableOpacity
                     style={styles.refreshButton}
@@ -302,93 +537,146 @@ const StatisticsScreen = ({ navigation }) => {
                         tintColor={theme.primary}
                     />
                 }
+                showsVerticalScrollIndicator={false}
             >
-                {/* Overview Cards */}
+                {/* Overview Statistics */}
                 <View style={styles.overviewContainer}>
-                    <View style={[styles.overviewCard, { backgroundColor: theme.surface }]}>
-                        <Icon name="analytics-outline" size={24} color={theme.primary} style={styles.cardIcon} />
-                        <Text style={[styles.cardValue, { color: theme.text }]}>
-                            {statistics?.overview?.totalPredictions || 0}
-                        </Text>
-                        <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>
-                            Total Scans
-                        </Text>
-                    </View>
-
-                    <View style={[styles.overviewCard, { backgroundColor: theme.surface }]}>
-                        <Icon name="checkmark-circle-outline" size={24} color="#4CAF50" style={styles.cardIcon} />
-                        <Text style={[styles.cardValue, { color: theme.text }]}>
-                            {statistics?.overview?.highConfidencePercentage || "0.00"}%
-                        </Text>
-                        <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>
-                            High Confidence
-                        </Text>
-                    </View>
-
-                    <View style={[styles.overviewCard, { backgroundColor: theme.surface }]}>
-                        <Icon name="time-outline" size={24} color="#FF9800" style={styles.cardIcon} />
-                        <Text style={[styles.cardValue, { color: theme.text }]}>
-                            {statistics?.overview?.recentPredictions || 0}
-                        </Text>
-                        <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>
-                            Recent Scans
-                        </Text>
-                    </View>
+                    <StatCard
+                        icon="analytics"
+                        value={statistics?.overview?.totalPredictions || 0}
+                        label="Total Predictions"
+                        color="#4A90E2"
+                        gradient={['#4A90E2', '#357ABD']}
+                        subtitle={`${statistics?.overview?.recentPredictions || 0} recent`}
+                    />
+                    <StatCard
+                        icon="checkmark-circle"
+                        value={`${statistics?.overview?.highConfidencePercentage || 0}%`}
+                        label="High Confidence"
+                        color="#50C878"
+                        gradient={['#50C878', '#45B565']}
+                        subtitle={`${statistics?.overview?.highConfidencePredictions || 0} scans`}
+                    />
+                    <StatCard
+                        icon="people"
+                        value={topUsers.length}
+                        label="Active Users"
+                        color="#FF6B6B"
+                        gradient={['#FF6B6B', '#E55A5A']}
+                        subtitle="Contributing"
+                    />
                 </View>
 
-                {/* Confidence Stats */}
-                <View style={[styles.sectionCard, { backgroundColor: theme.surface }]}>
+                {/* Confidence Statistics */}
+                <Animated.View
+                    style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: theme.surface,
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}
+                >
                     <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                        Confidence Statistics
+                        Confidence Analysis
                     </Text>
 
-                    <View style={styles.statsGrid}>
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.text }]}>
-                                {statistics?.confidenceStats?.avgConfidence?.toFixed(2) || "0.00"}%
+                    <View style={styles.confidenceGrid}>
+                        <View style={styles.confidenceItem}>
+                            <Text style={[styles.confidenceValue, { color: '#4CAF50' }]}>
+                                {statistics?.confidenceStats?.avgConfidence?.toFixed(1) || '0.0'}%
                             </Text>
-                            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                            <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
                                 Average
                             </Text>
                         </View>
-
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.text }]}>
-                                {statistics?.confidenceStats?.maxConfidence?.toFixed(2) || "0.00"}%
+                        <View style={styles.confidenceItem}>
+                            <Text style={[styles.confidenceValue, { color: '#2196F3' }]}>
+                                {statistics?.confidenceStats?.maxConfidence?.toFixed(1) || '0.0'}%
                             </Text>
-                            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                            <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
                                 Highest
                             </Text>
                         </View>
-
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.text }]}>
-                                {statistics?.confidenceStats?.minConfidence?.toFixed(2) || "0.00"}%
+                        <View style={styles.confidenceItem}>
+                            <Text style={[styles.confidenceValue, { color: '#FF9800' }]}>
+                                {statistics?.confidenceStats?.minConfidence?.toFixed(1) || '0.0'}%
                             </Text>
-                            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                            <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
                                 Lowest
                             </Text>
                         </View>
                     </View>
-                </View>
+                </Animated.View>
 
-                {/* Daily Trends Chart */}
-                <View style={[styles.sectionCard, { backgroundColor: theme.surface }]}>
+                {/* Time-based Analysis */}
+                <PeriodSelector />
+
+                <Animated.View
+                    style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: theme.surface,
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}
+                >
                     <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                        Daily Scan Trends
+                        {selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)} Trends
                     </Text>
-                    {renderDailyTrendsChart()}
-                </View>
+
+                    {timeBasedStats?.summary && (
+                        <View style={styles.summaryContainer}>
+                            <View style={styles.summaryItem}>
+                                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                                    {timeBasedStats.summary.totalCount || 0}
+                                </Text>
+                                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                                    Total Scans
+                                </Text>
+                            </View>
+                            <View style={styles.summaryItem}>
+                                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                                    {timeBasedStats.summary.avgConfidence?.toFixed(1) || '0.0'}%
+                                </Text>
+                                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                                    Avg. Confidence
+                                </Text>
+                            </View>
+                            <View style={styles.summaryItem}>
+                                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                                    {timeBasedStats.summary.uniqueUserCount || 0}
+                                </Text>
+                                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                                    Unique Users
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {renderTimeBasedChart()}
+                </Animated.View>
 
                 {/* Prediction Breakdown */}
-                <View style={[styles.sectionCard, { backgroundColor: theme.surface }]}>
+                <Animated.View
+                    style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: theme.surface,
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}
+                >
                     <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                        Prediction Breakdown
+                        Prediction Analysis
                     </Text>
                     {renderPredictionBreakdownChart()}
 
                     <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
-                        Tap on a prediction type to see details
+                        Tap on a prediction type to view detailed results
                     </Text>
 
                     <View style={styles.predictionList}>
@@ -397,43 +685,86 @@ const StatisticsScreen = ({ navigation }) => {
                                 key={item._id}
                                 style={[
                                     styles.predictionItem,
-                                    { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                                    { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
                                 ]}
                                 onPress={() => fetchPredictionResults(item._id)}
                             >
-                                <View style={styles.predictionItemLeft}>
+                                <View style={styles.predictionInfo}>
                                     <Text style={[styles.predictionName, { color: theme.text }]}>
                                         {item._id}
                                     </Text>
                                     <Text style={[styles.predictionCount, { color: theme.textSecondary }]}>
-                                        {item.count} scan{item.count !== 1 ? 's' : ''}
+                                        {item.count} scan{item.count !== 1 ? 's' : ''} • {item.uniqueUserCount || 0} user{(item.uniqueUserCount || 0) !== 1 ? 's' : ''}
                                     </Text>
                                 </View>
-                                <View style={styles.predictionItemRight}>
+                                <View style={styles.predictionStats}>
                                     <Text style={[styles.predictionConfidence, { color: theme.primary }]}>
-                                        {item.avgConfidence.toFixed(2)}%
+                                        {item.avgConfidence?.toFixed(1) || '0.0'}%
                                     </Text>
-                                    <Text style={[styles.predictionConfidenceLabel, { color: theme.textSecondary }]}>
-                                        avg. confidence
+                                    <Text style={[styles.predictionRange, { color: theme.textSecondary }]}>
+                                        {item.minConfidence?.toFixed(0) || '0'}-{item.maxConfidence?.toFixed(0) || '0'}%
                                     </Text>
                                 </View>
                                 <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
                             </TouchableOpacity>
                         ))}
                     </View>
-                </View>
+                </Animated.View>
 
                 {/* Distribution Chart */}
-                <View style={[styles.sectionCard, { backgroundColor: theme.surface }]}>
+                <Animated.View
+                    style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: theme.surface,
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}
+                >
                     <Text style={[styles.sectionTitle, { color: theme.text }]}>
                         Prediction Distribution
                     </Text>
                     {renderPredictionDistributionChart()}
-                </View>
+                </Animated.View>
+
+                {/* Top Users */}
+                <Animated.View
+                    style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: theme.surface,
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}
+                >
+                    <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                        Top Contributors
+                    </Text>
+
+                    {topUsers.length > 0 ? (
+                        topUsers.slice(0, 5).map((user, index) => (
+                            <TopUserCard
+                                key={user._id || index}
+                                user={user}
+                                index={index}
+                                rank={index + 1}
+                            />
+                        ))
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Icon name="people-outline" size={48} color={theme.textSecondary} />
+                            <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+                                No user data available
+                            </Text>
+                        </View>
+                    )}
+                </Animated.View>
             </ScrollView>
 
             {/* Prediction Details Modal */}
-            {selectedPrediction && renderPredictionDetails()}
+            <PredictionDetailModal />
         </View>
     );
 };
@@ -448,7 +779,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     loadingText: {
-        marginTop: 12,
+        marginTop: 16,
         fontSize: 16,
     },
     header: {
@@ -480,72 +811,126 @@ const styles = StyleSheet.create({
     overviewContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginBottom: 16,
+        marginBottom: 20,
     },
-    overviewCard: {
+    statCard: {
         flex: 1,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: "center",
         marginHorizontal: 4,
-        elevation: 2,
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 3,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 4,
     },
-    cardIcon: {
+    statCardGradient: {
+        padding: 16,
+        alignItems: 'center',
+    },
+    statIcon: {
         marginBottom: 8,
     },
-    cardValue: {
-        fontSize: 20,
+    statValue: {
+        fontSize: 18,
         fontWeight: "bold",
+        color: 'white',
         marginBottom: 4,
     },
-    cardLabel: {
-        fontSize: 12,
-        textAlign: "center",
+    statLabel: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+    },
+    statSubtitle: {
+        fontSize: 10,
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 2,
     },
     sectionCard: {
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-        elevation: 2,
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        elevation: 3,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 4,
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: "bold",
         marginBottom: 16,
     },
     sectionSubtitle: {
         fontSize: 12,
-        marginTop: 8,
-        marginBottom: 12,
+        marginTop: 12,
+        marginBottom: 16,
         textAlign: "center",
     },
-    statsGrid: {
+    confidenceGrid: {
         flexDirection: "row",
         justifyContent: "space-between",
+        marginBottom: 16,
     },
-    statItem: {
+    confidenceItem: {
         flex: 1,
         alignItems: "center",
     },
-    statValue: {
-        fontSize: 18,
+    confidenceValue: {
+        fontSize: 20,
         fontWeight: "bold",
         marginBottom: 4,
     },
-    statLabel: {
+    confidenceLabel: {
         fontSize: 12,
+    },
+    periodSelector: {
+        marginBottom: 20,
+    },
+    periodButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    periodButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginHorizontal: 2,
+    },
+    periodButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    summaryContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: 8,
+    },
+    summaryItem: {
+        alignItems: 'center',
+    },
+    summaryValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    summaryLabel: {
+        fontSize: 11,
     },
     chart: {
         marginVertical: 8,
-        borderRadius: 12,
+        borderRadius: 16,
     },
     chartPlaceholder: {
         height: 200,
@@ -553,101 +938,178 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
+    placeholderText: {
+        marginTop: 8,
+        fontSize: 14,
+    },
     predictionList: {
         marginTop: 8,
     },
     predictionItem: {
         flexDirection: "row",
         alignItems: "center",
-        padding: 12,
-        borderRadius: 8,
+        padding: 16,
+        borderRadius: 12,
         marginBottom: 8,
     },
-    predictionItemLeft: {
+    predictionInfo: {
         flex: 1,
     },
     predictionName: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: "600",
-        marginBottom: 2,
+        marginBottom: 4,
     },
     predictionCount: {
         fontSize: 12,
     },
-    predictionItemRight: {
+    predictionStats: {
         alignItems: "flex-end",
         marginRight: 12,
     },
     predictionConfidence: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: "600",
+        marginBottom: 2,
     },
-    predictionConfidenceLabel: {
+    predictionRange: {
+        fontSize: 11,
+    },
+    topUserCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    rankBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#4A90E2',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    rankText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    userInfo: {
+        flex: 1,
+    },
+    topUserName: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    topUserEmail: {
+        fontSize: 12,
+        marginBottom: 8,
+    },
+    userStats: {
+        flexDirection: 'row',
+    },
+    userStatItem: {
+        marginRight: 20,
+    },
+    userStatValue: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    userStatLabel: {
         fontSize: 10,
     },
-    detailsContainer: {
-        position: "absolute",
-        bottom: 0,
+    roleBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    roleBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    emptyState: {
+        padding: 32,
+        alignItems: 'center',
+    },
+    emptyStateText: {
+        fontSize: 14,
+        marginTop: 8,
+    },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
         left: 0,
         right: 0,
+        bottom: 0,
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         padding: 20,
-        maxHeight: "70%",
+        maxHeight: '80%',
         elevation: 10,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.2,
         shadowRadius: 5,
     },
-    detailsHeader: {
+    modalHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         marginBottom: 12,
     },
-    detailsTitle: {
+    modalTitle: {
         fontSize: 18,
         fontWeight: "bold",
     },
     closeButton: {
         padding: 8,
     },
-    detailsSubtitle: {
+    modalSubtitle: {
         fontSize: 14,
         marginBottom: 16,
     },
     resultsList: {
-        maxHeight: "80%",
+        maxHeight: '80%',
     },
     resultItem: {
         borderRadius: 8,
         padding: 12,
         marginBottom: 8,
     },
-    resultItemHeader: {
+    resultHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         marginBottom: 8,
     },
-    resultItemTitle: {
+    resultPrediction: {
         fontSize: 14,
         fontWeight: "600",
     },
-    resultItemDate: {
+    resultDate: {
         fontSize: 12,
     },
-    resultItemContent: {
+    resultDetails: {
         flexDirection: "row",
-        alignItems: "center",
+        justifyContent: "space-between",
     },
-    resultItemLabel: {
+    resultConfidence: {
         fontSize: 12,
-        marginRight: 4,
-    },
-    resultItemValue: {
-        fontSize: 14,
         fontWeight: "500",
+    },
+    resultUser: {
+        fontSize: 12,
     },
 });
 
