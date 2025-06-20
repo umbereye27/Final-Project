@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+"use client"
+
+import { useState } from "react"
 import {
   View,
   Text,
@@ -11,33 +13,33 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import Icon from "react-native-vector-icons/Ionicons";
-import { useTheme } from "../theme/ThemeContext";
-import * as FileSystem from "expo-file-system";
+} from "react-native"
+import * as ImagePicker from "expo-image-picker"
+import Icon from "react-native-vector-icons/Ionicons"
+import * as SecureStore from "expo-secure-store"
+import { useTheme } from "../theme/ThemeContext"
 
 export default function SkinLesionDetectorApp({ navigation }) {
-  const [image, setImage] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const { theme, isDark } = useTheme();
+  const [image, setImage] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("Processing...")
+  const { theme, isDark } = useTheme()
 
-  // Define your API endpoint - update with your actual server IP
-  const API_URL = "http://192.168.4.80:4000/predict";
+  // Define your API endpoints
+  const PREDICTION_API_URL = "http://192.168.4.80:4000/predict"
+  const SAVE_RESULT_API_URL = "http://192.168.4.80:5001/api/results"
 
   const pickImage = async () => {
-    setIsLoading(true);
+    setIsLoading(true)
+    setLoadingMessage("Preparing image...")
+
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "Sorry, we need camera roll permissions to make this work!"
-        );
-        setIsLoading(false);
-        return;
+        Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to make this work!")
+        setIsLoading(false)
+        return
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -45,135 +47,176 @@ export default function SkinLesionDetectorApp({ navigation }) {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
-      });
+      })
 
       if (!result.canceled) {
-        setImage({ uri: result.assets[0].uri });
-        // Upload image to server
-        await uploadImage(result.assets[0].uri);
+        setImage({ uri: result.assets[0].uri })
+        // Process image and save result
+        await processImageAndSave(result.assets[0].uri)
       } else {
-        setIsLoading(false);
+        setIsLoading(false)
       }
     } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image from gallery");
-      setIsLoading(false);
+      console.error("Error picking image:", error)
+      Alert.alert("Error", "Failed to pick image from gallery")
+      setIsLoading(false)
     }
-  };
+  }
 
-  const uploadImage = async (uri) => {
-    try {
-      // Create form data
-      const formData = new FormData();
-
-      // Get file name from URI
-      const uriParts = uri.split('/');
-      const fileName = uriParts[uriParts.length - 1];
-
-      // Get file type
-      const fileType = fileName.split('.')[1];
-
-      // Append file to form data
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: `image/${fileType}`,
-      });
-
-      // Send request to server
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      // Check if request was successful
-      if (response.ok) {
-        const data = await response.json();
-
-        console.log("Prediction result:", data);
-
-        // Navigate to result screen with prediction data
-        navigation.navigate("ResultScreen", {
-          prediction: data.prediction,
-          confidence: data.confidence,
-          imageUri: uri
-        });
-      } else {
-        throw new Error('Server returned an error');
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert(
-        "Upload Error",
-        "Failed to get prediction from server. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to take picture from camera
   const takePicture = async () => {
-    setIsLoading(true);
+    setIsLoading(true)
+    setLoadingMessage("Preparing camera...")
+
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status } = await ImagePicker.requestCameraPermissionsAsync()
 
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "Sorry, we need camera permissions to make this work!"
-        );
-        setIsLoading(false);
-        return;
+        Alert.alert("Permission Denied", "Sorry, we need camera permissions to make this work!")
+        setIsLoading(false)
+        return
       }
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
-      });
+      })
 
       if (!result.canceled) {
-        setImage({ uri: result.assets[0].uri });
-        // Upload image to server
-        await uploadImage(result.assets[0].uri);
+        setImage({ uri: result.assets[0].uri })
+        // Process image and save result
+        await processImageAndSave(result.assets[0].uri)
       } else {
-        setIsLoading(false);
+        setIsLoading(false)
       }
     } catch (error) {
-      console.error("Error taking picture:", error);
-      Alert.alert("Error", "Failed to take picture");
-      setIsLoading(false);
+      console.error("Error taking picture:", error)
+      Alert.alert("Error", "Failed to take picture")
+      setIsLoading(false)
     }
-  };
+  }
 
-  // Function to navigate to statistics screen
-  const goToStatistics = () => {
-    navigation.navigate("StatisticsScreen");
-  };
+  const processImageAndSave = async (uri) => {
+    try {
+      // Step 1: Get prediction from AI model
+      setLoadingMessage("Analyzing image with AI...")
+      const predictionData = await getPrediction(uri)
+
+      if (!predictionData) {
+        throw new Error("Failed to get prediction")
+      }
+
+      // Step 2: Save result to database
+      setLoadingMessage("Saving results...")
+      const saveSuccess = await saveResult(predictionData)
+
+      // Step 3: Navigate to result screen
+      setLoadingMessage("Preparing results...")
+      navigation.navigate("ResultScreen", {
+        prediction: predictionData.prediction,
+        confidence: predictionData.confidence,
+        imageUri: uri,
+        isSaved: saveSuccess,
+        saveMessage: saveSuccess ? "Results saved successfully" : "Failed to save results",
+      })
+    } catch (error) {
+      console.error("Error processing image:", error)
+      Alert.alert("Processing Error", "Failed to process image. Please try again.", [{ text: "OK" }])
+    } finally {
+      setIsLoading(false)
+      setLoadingMessage("Processing...")
+    }
+  }
+
+  const getPrediction = async (uri) => {
+    try {
+      // Create form data
+      const formData = new FormData()
+
+      // Get file name from URI
+      const uriParts = uri.split("/")
+      const fileName = uriParts[uriParts.length - 1]
+
+      // Get file type
+      const fileType = fileName.split(".")[1]
+
+      // Append file to form data
+      formData.append("file", {
+        uri,
+        name: fileName,
+        type: `image/${fileType}`,
+      })
+
+      // Send request to prediction server
+      const response = await fetch(PREDICTION_API_URL, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Prediction result:", data)
+        return data
+      } else {
+        throw new Error("Prediction server returned an error")
+      }
+    } catch (error) {
+      console.error("Error getting prediction:", error)
+      throw error
+    }
+  }
+
+  const saveResult = async (predictionData) => {
+    try {
+      // Get authentication token
+      const token = await SecureStore.getItemAsync("userToken")
+
+      if (!token) {
+        console.log("No authentication token found - user not logged in")
+        // Still allow viewing results, but mark as not saved
+        return false
+      }
+
+      // Save result to database
+      const response = await fetch(SAVE_RESULT_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          confidence: predictionData.confidence,
+          prediction: predictionData.prediction,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log("Result saved successfully:", data)
+        return true
+      } else {
+        console.error("Failed to save result:", data.message)
+        return false
+      }
+    } catch (error) {
+      console.error("Error saving result:", error)
+      return false
+    }
+  }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Navigation Header */}
       <View style={[styles.header, { backgroundColor: "transparent" }]}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate("Profile")}
-        >
+        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("Profile")}>
           <Icon name="person-outline" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Skin Lesion Detector
-        </Text>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate("Settings")}
-        >
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Skin Lesion Detector</Text>
+        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("Settings")}>
           <Icon name="settings-outline" size={24} color={theme.text} />
         </TouchableOpacity>
       </View>
@@ -184,7 +227,10 @@ export default function SkinLesionDetectorApp({ navigation }) {
             <View style={[styles.circleBg, { backgroundColor: theme.secondary }]}>
               <View style={[styles.circleInner, { borderColor: theme.primary }]}>
                 {isLoading ? (
-                  <ActivityIndicator size="large" color={theme.primary} />
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                    <Text style={[styles.loadingText, { color: theme.text }]}>{loadingMessage}</Text>
+                  </View>
                 ) : (
                   <Image
                     source={image || require("../../assets/placeholder.png")}
@@ -196,23 +242,110 @@ export default function SkinLesionDetectorApp({ navigation }) {
             </View>
           </View>
 
+          {/* Processing Steps Indicator */}
+          {isLoading && (
+            <View style={[styles.stepsContainer, { backgroundColor: theme.surface }]}>
+              <View style={styles.stepItem}>
+                <Icon
+                  name="camera"
+                  size={16}
+                  color={loadingMessage.includes("Preparing") ? theme.primary : "#4CAF50"}
+                />
+                <Text
+                  style={[styles.stepText, { color: loadingMessage.includes("Preparing") ? theme.primary : "#4CAF50" }]}
+                >
+                  Image Captured
+                </Text>
+              </View>
+
+              <View style={styles.stepDivider} />
+
+              <View style={styles.stepItem}>
+                <Icon
+                  name="brain"
+                  size={16}
+                  color={
+                    loadingMessage.includes("Analyzing")
+                      ? theme.primary
+                      : loadingMessage.includes("Saving") || loadingMessage.includes("Preparing results")
+                        ? "#4CAF50"
+                        : theme.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.stepText,
+                    {
+                      color: loadingMessage.includes("Analyzing")
+                        ? theme.primary
+                        : loadingMessage.includes("Saving") || loadingMessage.includes("Preparing results")
+                          ? "#4CAF50"
+                          : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  AI Analysis
+                </Text>
+              </View>
+
+              <View style={styles.stepDivider} />
+
+              <View style={styles.stepItem}>
+                <Icon
+                  name="save"
+                  size={16}
+                  color={
+                    loadingMessage.includes("Saving")
+                      ? theme.primary
+                      : loadingMessage.includes("Preparing results")
+                        ? "#4CAF50"
+                        : theme.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.stepText,
+                    {
+                      color: loadingMessage.includes("Saving")
+                        ? theme.primary
+                        : loadingMessage.includes("Preparing results")
+                          ? "#4CAF50"
+                          : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  Saving Results
+                </Text>
+              </View>
+
+              <View style={styles.stepDivider} />
+
+              <View style={styles.stepItem}>
+                <Icon
+                  name="document-text"
+                  size={16}
+                  color={loadingMessage.includes("Preparing results") ? theme.primary : theme.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.stepText,
+                    { color: loadingMessage.includes("Preparing results") ? theme.primary : theme.textSecondary },
+                  ]}
+                >
+                  Report Ready
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Buttons Section */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: theme.primary },
-                isLoading && styles.buttonDisabled,
-              ]}
+              style={[styles.button, { backgroundColor: theme.primary }, isLoading && styles.buttonDisabled]}
               onPress={pickImage}
               disabled={isLoading}
             >
-              <Icon
-                name="image"
-                size={20}
-                color={theme.buttonText}
-                style={styles.buttonIcon}
-              />
+              <Icon name="image" size={20} color={theme.buttonText} style={styles.buttonIcon} />
               <Text style={[styles.buttonText, { color: theme.buttonText }]}>
                 {isLoading ? "Processing..." : "Choose Image"}
               </Text>
@@ -227,33 +360,8 @@ export default function SkinLesionDetectorApp({ navigation }) {
               onPress={takePicture}
               disabled={isLoading}
             >
-              <Icon
-                name="camera"
-                size={20}
-                color={theme.buttonText}
-                style={styles.buttonIcon}
-              />
-              <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-                Take Photo
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: theme.secondary, marginTop: 20 },
-              ]}
-              onPress={goToStatistics}
-            >
-              <Icon
-                name="stats-chart"
-                size={20}
-                color={theme.text}
-                style={styles.buttonIcon}
-              />
-              <Text style={[styles.buttonText, { color: theme.text }]}>
-                View Statistics
-              </Text>
+              <Icon name="camera" size={20} color={theme.buttonText} style={styles.buttonIcon} />
+              <Text style={[styles.buttonText, { color: theme.buttonText }]}>Take Photo</Text>
             </TouchableOpacity>
           </View>
 
@@ -261,14 +369,23 @@ export default function SkinLesionDetectorApp({ navigation }) {
             Upload a proper image to get diagnosis!
           </Text>
 
+          {/* Process Info */}
+          <View style={[styles.processInfo, { backgroundColor: theme.surface }]}>
+            <Icon name="information-circle" size={16} color={theme.primary} />
+            <Text style={[styles.processInfoText, { color: theme.textSecondary }]}>
+              Your results will be automatically analyzed and saved to your profile
+            </Text>
+          </View>
+
           {/* Footer disclaimer */}
           <Text style={[styles.footerDisclaimer, { color: theme.textSecondary }]}>
-            This app does not provide medical advice. Always consult a qualified healthcare professional for proper diagnosis and treatment.
+            This app does not provide medical advice. Always consult a qualified healthcare professional for proper
+            diagnosis and treatment.
           </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -328,6 +445,44 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 12,
+    textAlign: "center",
+  },
+  stepsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  stepItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  stepText: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  stepDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: "rgba(0,0,0,0.1)",
+    marginHorizontal: 8,
+  },
   buttonContainer: {
     width: "100%",
     paddingHorizontal: 20,
@@ -354,6 +509,21 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.7,
   },
+  processInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    marginHorizontal: 20,
+  },
+  processInfoText: {
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
+    textAlign: "center",
+  },
   footerDisclaimer: {
     fontSize: 11,
     textAlign: "center",
@@ -361,4 +531,4 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     paddingHorizontal: 20,
   },
-});
+})
