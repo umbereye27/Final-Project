@@ -81,7 +81,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchUserStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.4.80:5001/api/users/stats", {
+      const response = await fetch("http://192.168.1.17:5001/api/users/stats", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -100,7 +100,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchScanStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.4.80:5001/api/results/statistics", {
+      const response = await fetch("http://192.168.1.17:5001/api/results/statistics", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -119,7 +119,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchRecentUsers = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.4.80:5001/api/users?limit=5", {
+      const response = await fetch("http://192.168.1.17:5001/api/users?limit=5", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",

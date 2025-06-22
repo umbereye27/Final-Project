@@ -26,43 +26,47 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme()
 
   // Define your API endpoints
-  const PREDICTION_API_URL = "http://192.168.4.80:4000/predict"
-  const SAVE_RESULT_API_URL = "http://192.168.4.80:5001/api/results"
+  const PREDICTION_API_URL = "http://192.168.1.17:4000/predict"
+  const SAVE_RESULT_API_URL = "http://192.168.1.17.80:5001/api/results"
 
   const pickImage = async () => {
-    setIsLoading(true)
-    setLoadingMessage("Preparing image...")
+  setIsLoading(true);
+  setLoadingMessage("Preparing image...");
 
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== "granted") {
-        Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to make this work!")
-        setIsLoading(false)
-        return
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 1,
-      })
-
-      if (!result.canceled) {
-        setImage({ uri: result.assets[0].uri })
-        // Process image and save result
-        await processImageAndSave(result.assets[0].uri)
-      } else {
-        setIsLoading(false)
-      }
-    } catch (error) {
-      console.error("Error picking image:", error)
-      Alert.alert("Error", "Failed to pick image from gallery")
-      setIsLoading(false)
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to make this work!");
+      setIsLoading(false);
+      return;
     }
-  }
 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    console.log(result, "-----------------------------------------------------------");
+
+    if (!result.canceled) {
+      setImage({ uri: result.assets[0].uri });
+      // Process image and save result
+      await processImageAndSave(result.assets[0].uri);
+    } else {
+      setIsLoading(false);
+    }
+  } catch (error) {
+    console.error("Error picking image:", error);
+    Alert.alert("Error", "Failed to pick image from gallery");
+    setIsLoading(false);
+  }
+};
+
+
+  
   const takePicture = async () => {
     setIsLoading(true)
     setLoadingMessage("Preparing camera...")
