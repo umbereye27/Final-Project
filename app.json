@@ -12,13 +12,21 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.umbereye.DoneWithIt",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.umbereye.DoneWithIt"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,10 +44,11 @@
     "experiments": {
       "tsconfigPaths": true
     },
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "5e548652-1f3f-4ace-b1a6-6f517973900f"
+      }
+    }
   }
 }
-
-
-
-

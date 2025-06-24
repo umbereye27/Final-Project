@@ -45,7 +45,7 @@ const UserListScreen = ({ navigation }) => {
     const loadUsers = async () => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch("http://192.168.1.17:5001/api/users/all", {
+            const response = await fetch("http://192.168.1.2:5001/api/users/all", {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -67,7 +67,7 @@ const UserListScreen = ({ navigation }) => {
     const loadUserStats = async () => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch("http://192.168.1.17:5001/api/users/stats", {
+            const response = await fetch("http://192.168.1.2:5001/api/users/stats", {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",

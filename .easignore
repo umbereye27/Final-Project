@@ -1,0 +1,22 @@
+# Ignore git history
+.git
+
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+build/
+
+# Native build artifacts
+android/.gradle
+ios/Pods
+
+# macOS
+.DS_Store
+
+# Logs and env
+.env
+*.log

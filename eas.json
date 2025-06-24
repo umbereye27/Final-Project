@@ -1,0 +1,17 @@
+{
+  "cli": {
+    "version": ">= 16.12.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "cache": {
+        "key": "preview-cache"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

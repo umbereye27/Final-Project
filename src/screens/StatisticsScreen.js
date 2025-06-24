@@ -82,7 +82,7 @@ const StatisticsScreen = ({ navigation }) => {
     const fetchStatistics = async () => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch("http://192.168.1.17:5001/api/results/statistics", {
+            const response = await fetch("http://192.168.1.2:5001/api/results/statistics", {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -104,7 +104,7 @@ const StatisticsScreen = ({ navigation }) => {
     const fetchTimeBasedStats = async (period) => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch(`http://192.168.1.17:5001/api/results/stats/${period}`, {
+            const response = await fetch(`http://192.168.1.2:5001/api/results/stats/${period}`, {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -126,7 +126,7 @@ const StatisticsScreen = ({ navigation }) => {
         setSelectedPrediction(prediction);
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch(`http://192.168.1.17:5001/api/results/prediction/${prediction}`, {
+            const response = await fetch(`http://192.168.1.2:5001/api/results/prediction/${prediction}`, {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
