@@ -11,6 +11,7 @@ import SettingsScreen from "../screens/SettingsScreen";
 import ResultScreen from "../screens/ResultScreen";
 import StatisticsScreen from "../screens/StatisticsScreen";
 import UserListScreen from "../screens/UserListScreen";
+import ReportScreen from "../screens/ReportScreen";
 
 const Stack = createStackNavigator();
 
@@ -46,6 +47,7 @@ const AppNavigator = () => {
         <Stack.Screen name="ResultScreen" component={ResultScreen} />
         <Stack.Screen name="StatisticsScreen" component={StatisticsScreen} />
         <Stack.Screen name="UserListScreen" component={UserListScreen} />
+        <Stack.Screen name="ReportScreen" component={ReportScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

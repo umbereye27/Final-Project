@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -18,6 +19,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import * as SecureStore from "expo-secure-store";
 import { useTheme } from "../theme/ThemeContext";
 import { LinearGradient } from 'expo-linear-gradient';
+import { generatePDFReport } from '../api/apiClient';
 
 const { width } = Dimensions.get('window');
 
@@ -81,7 +83,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchUserStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.1.17:5001/api/users/stats", {
+      const response = await fetch("http://172.20.10.7:5001/api/users/stats", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -100,7 +102,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchScanStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.1.17:5001/api/results/statistics", {
+      const response = await fetch("http://172.20.10.7:5001/api/results/stats", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -119,7 +121,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchRecentUsers = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://192.168.1.17:5001/api/users?limit=5", {
+      const response = await fetch("http://172.20.10.7:5001/api/users?limit=5", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -235,7 +237,7 @@ const DashboardScreen = ({ navigation }) => {
         </Text>
       </View>
       <View style={styles.userInfo}>
-        <Text style={[styles.userName, { color: theme.text }]}>{user.name || 'Unknown User'}</Text>
+        <Text style={[styles.userName, { color: theme.text }]}>{user.username || 'Unknown User'}</Text>
         <Text style={[styles.userEmail, { color: theme.textSecondary }]}>{user.email}</Text>
         <Text style={[styles.userRole, { color: theme.primary }]}>
           {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}
@@ -247,6 +249,46 @@ const DashboardScreen = ({ navigation }) => {
       ]} />
     </Animated.View>
   );
+
+  const handleGeneratePDF = async () => {
+    try {
+      // Get date range for last 30 days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      
+      // Show confirmation dialog
+      Alert.alert(
+        "Generate PDF Report",
+        "Generate a PDF report for the last 30 days?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Generate",
+            onPress: async () => {
+              setLoading(true);
+              try {
+                const response = await generatePDFReport(startDate.toISOString(), endDate.toISOString());
+                Alert.alert("Success", response.message || "PDF report generated and sent to your email");
+              } catch (error) {
+                console.error("Error generating PDF:", error);
+                Alert.alert("Error", "Failed to generate PDF report");
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      Alert.alert("Error", "Failed to generate PDF report");
+    }
+  };
+
+  const navigateToReports = () => {
+    navigation.navigate("ReportScreen");
+  };
 
   if (loading) {
     return (
@@ -281,7 +323,7 @@ const DashboardScreen = ({ navigation }) => {
               {getGreeting()}
             </Text>
             <Text style={[styles.userName, { color: theme.text }]}>
-              {currentUser?.name || 'Admin'}
+              {currentUser?.username || 'Admin'}
             </Text>
           </View>
 
@@ -388,6 +430,22 @@ const DashboardScreen = ({ navigation }) => {
               subtitle="Start a new skin lesion analysis"
               color="#FF6B6B"
               onPress={() => navigation.navigate("Home")}
+            />
+
+            <QuickActionCard
+              icon="calendar"
+              title="Date Filter Reports"
+              subtitle="Filter results by date and generate PDF"
+              color="#9C27B0"
+              onPress={navigateToReports}
+            />
+
+            <QuickActionCard
+              icon="document-text"
+              title="Generate Report"
+              subtitle="Create PDF report of last 30 days"
+              color="#FF9800"
+              onPress={handleGeneratePDF}
             />
           </Animated.View>
 

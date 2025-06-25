@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-const API_URL = "http://192.168.1.17:5001/api";
+const API_URL = "http://172.20.10.7:5001/api";
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -85,4 +85,45 @@ export const authService = {
   },
 };
 
-export default apiClient;
+const fetchResultsByDateRange = async (startDate, endDate, page = 1, limit = 10) => {
+  try {
+    const response = await apiClient.get('/results/date-range', {
+      params: {
+        startDate,
+        endDate,
+        page,
+        limit
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching results by date range:', error);
+    throw error;
+  }
+};
+
+const generatePDFReport = async (startDate, endDate) => {
+  try {
+    const token = await SecureStore.getItemAsync("userToken");
+    const response = await fetch("http://172.20.10.7:5001/api/results/generate-pdf", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ startDate, endDate }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error generating PDF report:', error);
+    throw error;
+  }
+};
+
+export {
+  apiClient as default,
+  fetchResultsByDateRange,
+  generatePDFReport
+};

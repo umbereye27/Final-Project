@@ -26,8 +26,8 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme()
 
   // Define your API endpoints
-  const PREDICTION_API_URL = "http://192.168.1.17:4000/predict"
-  const SAVE_RESULT_API_URL = "http://192.168.1.17.80:5001/api/results"
+  const PREDICTION_API_URL = "http://172.20.10.7:4000/predict"
+  const SAVE_RESULT_API_URL = "http://172.20.10.7:5001/api/results"
 
   const pickImage = async () => {
   setIsLoading(true);
@@ -48,8 +48,6 @@ export default function SkinLesionDetectorApp({ navigation }) {
       aspect: [1, 1],
       quality: 1,
     });
-
-    console.log(result, "-----------------------------------------------------------");
 
     if (!result.canceled) {
       setImage({ uri: result.assets[0].uri });
