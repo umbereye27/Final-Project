@@ -15,6 +15,7 @@ import {
   Animated,
   ActivityIndicator,
 } from "react-native";
+import { API_URL } from "../api/apiClient";
 import Icon from "react-native-vector-icons/Ionicons";
 import * as SecureStore from "expo-secure-store";
 import { useTheme } from "../theme/ThemeContext";
@@ -83,7 +84,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchUserStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://172.20.10.7:5001/api/users/stats", {
+      const response = await fetch(`${API_URL}/users/stats`, {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -102,7 +103,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchScanStats = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://172.20.10.7:5001/api/results/stats", {
+      const response = await fetch(`${API_URL}/results/stats`, {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -121,7 +122,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchRecentUsers = async () => {
     try {
       const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch("http://172.20.10.7:5001/api/users?limit=5", {
+      const response = await fetch(`${API_URL}/users?limit=5`, {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -440,13 +441,6 @@ const DashboardScreen = ({ navigation }) => {
               onPress={navigateToReports}
             />
 
-            <QuickActionCard
-              icon="document-text"
-              title="Generate Report"
-              subtitle="Create PDF report of last 30 days"
-              color="#FF9800"
-              onPress={handleGeneratePDF}
-            />
           </Animated.View>
 
           {/* Recent Users */}

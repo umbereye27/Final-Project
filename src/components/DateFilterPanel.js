@@ -1,24 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
+const DateFilterPanel = ({ onFilterApply, onGeneratePDF, hasResults = false }) => {
   const { theme } = useTheme();
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSingleDayMode, setIsSingleDayMode] = useState(true);
 
   const handleStartDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || startDate;
     setShowStartPicker(Platform.OS === 'ios');
     setStartDate(currentDate);
     
+    // If in single day mode, set end date equal to start date
+    if (isSingleDayMode) {
+      setEndDate(currentDate);
+    } 
     // If end date is before start date, update end date
-    if (endDate < currentDate) {
+    else if (endDate < currentDate) {
       setEndDate(currentDate);
     }
   };
@@ -29,10 +34,37 @@ const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
     setEndDate(currentDate);
   };
 
+  const toggleDayMode = () => {
+    setIsSingleDayMode(!isSingleDayMode);
+    if (!isSingleDayMode) {
+      // When switching to single day mode, set end date equal to start date
+      setEndDate(startDate);
+    }
+  };
+
   const applyFilter = async () => {
     setIsLoading(true);
     try {
-      await onFilterApply(startDate.toISOString(), endDate.toISOString());
+      // Format dates to ISO string
+      const formattedStartDate = startDate.toISOString();
+      // For single day, add one day to the end date to include all events on that day
+      let formattedEndDate;
+      if (isSingleDayMode) {
+        // Clone the start date and set it to end of day (23:59:59.999)
+        const endOfDay = new Date(startDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        formattedEndDate = endOfDay.toISOString();
+      } else {
+        // For range mode, set the end date to end of day
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        formattedEndDate = endOfDay.toISOString();
+      }
+      
+      console.log("Filtering with dates:", formattedStartDate, formattedEndDate);
+      await onFilterApply(formattedStartDate, formattedEndDate);
+    } catch (error) {
+      console.error("Error in date filter:", error);
     } finally {
       setIsLoading(false);
     }
@@ -41,7 +73,24 @@ const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
   const generatePDF = async () => {
     setIsLoading(true);
     try {
-      await onGeneratePDF(startDate.toISOString(), endDate.toISOString());
+      // Format dates to ISO string
+      const formattedStartDate = startDate.toISOString();
+      // Same logic as applyFilter for consistent date handling
+      let formattedEndDate;
+      if (isSingleDayMode) {
+        const endOfDay = new Date(startDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        formattedEndDate = endOfDay.toISOString();
+      } else {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        formattedEndDate = endOfDay.toISOString();
+      }
+      
+      console.log("Generating PDF with dates:", formattedStartDate, formattedEndDate);
+      await onGeneratePDF(formattedStartDate, formattedEndDate);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
     } finally {
       setIsLoading(false);
     }
@@ -51,9 +100,23 @@ const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <Text style={[styles.title, { color: theme.text }]}>Date Filter</Text>
       
+      <View style={styles.modeToggleContainer}>
+        <Text style={[styles.modeText, { color: theme.text }]}>
+          {isSingleDayMode ? 'Single Day' : 'Date Range'}
+        </Text>
+        <Switch
+          value={!isSingleDayMode}
+          onValueChange={toggleDayMode}
+          trackColor={{ false: theme.surface, true: theme.primary }}
+          thumbColor={theme.background}
+        />
+      </View>
+      
       <View style={styles.dateContainer}>
         <View style={styles.dateField}>
-          <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>Start Date</Text>
+          <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>
+            {isSingleDayMode ? 'Select Date' : 'Start Date'}
+          </Text>
           <TouchableOpacity 
             style={[styles.dateButton, { backgroundColor: theme.background }]}
             onPress={() => setShowStartPicker(true)}
@@ -65,18 +128,20 @@ const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.dateField}>
-          <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>End Date</Text>
-          <TouchableOpacity 
-            style={[styles.dateButton, { backgroundColor: theme.background }]}
-            onPress={() => setShowEndPicker(true)}
-          >
-            <Text style={[styles.dateText, { color: theme.text }]}>
-              {endDate.toLocaleDateString()}
-            </Text>
-            <Icon name="calendar-outline" size={20} color={theme.primary} />
-          </TouchableOpacity>
-        </View>
+        {!isSingleDayMode && (
+          <View style={styles.dateField}>
+            <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>End Date</Text>
+            <TouchableOpacity 
+              style={[styles.dateButton, { backgroundColor: theme.background }]}
+              onPress={() => setShowEndPicker(true)}
+            >
+              <Text style={[styles.dateText, { color: theme.text }]}>
+                {endDate.toLocaleDateString()}
+              </Text>
+              <Icon name="calendar-outline" size={20} color={theme.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.buttonContainer}>
@@ -92,13 +157,19 @@ const DateFilterPanel = ({ onFilterApply, onGeneratePDF }) => {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#4CAF50' }]}
+          style={[
+            styles.button, 
+            { 
+              backgroundColor: hasResults ? '#4CAF50' : '#A5D6A7',
+              opacity: hasResults ? 1 : 0.7
+            }
+          ]}
           onPress={generatePDF}
-          disabled={isLoading}
+          disabled={isLoading || !hasResults}
         >
-          <Icon name="document-text-outline" size={18} color={theme.buttonText} style={styles.buttonIcon} />
+          <Icon name="download-outline" size={18} color={theme.buttonText} style={styles.buttonIcon} />
           <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-            {isLoading ? 'Generating...' : 'Generate PDF'}
+            {isLoading ? 'Generating...' : 'Download PDF'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -143,6 +214,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+  },
+  modeToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modeText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -190,4 +271,9 @@ const styles = StyleSheet.create({
 });
 
 export default DateFilterPanel;
+
+
+
+
+
 

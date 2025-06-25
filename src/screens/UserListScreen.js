@@ -15,6 +15,7 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 import * as SecureStore from "expo-secure-store";
 import { useTheme } from "../theme/ThemeContext";
+import { API_URL } from "../api/apiClient";
 
 const UserListScreen = ({ navigation }) => {
     const { theme, isDark } = useTheme();
@@ -45,7 +46,7 @@ const UserListScreen = ({ navigation }) => {
     const loadUsers = async () => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch("http://172.20.10.7:5001/api/users/all", {
+            const response = await fetch(`${API_URL}/users/all`, {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -67,7 +68,7 @@ const UserListScreen = ({ navigation }) => {
     const loadUserStats = async () => {
         try {
             const token = await SecureStore.getItemAsync("userToken");
-            const response = await fetch("http://172.20.10.7:5001/api/users/stats", {
+            const response = await fetch(`${API_URL}/users/stats`, {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",

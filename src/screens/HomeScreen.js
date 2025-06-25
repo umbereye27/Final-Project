@@ -18,6 +18,8 @@ import * as ImagePicker from "expo-image-picker"
 import Icon from "react-native-vector-icons/Ionicons"
 import * as SecureStore from "expo-secure-store"
 import { useTheme } from "../theme/ThemeContext"
+import { API_URL } from "../api/apiClient"
+import { MODAL_API_URL } from "../config/constants"
 
 export default function SkinLesionDetectorApp({ navigation }) {
   const [image, setImage] = useState(null)
@@ -26,8 +28,8 @@ export default function SkinLesionDetectorApp({ navigation }) {
   const { theme, isDark } = useTheme()
 
   // Define your API endpoints
-  const PREDICTION_API_URL = "http://172.20.10.7:4000/predict"
-  const SAVE_RESULT_API_URL = "http://172.20.10.7:5001/api/results"
+  const PREDICTION_API_URL = `${MODAL_API_URL}/predict`
+  const SAVE_RESULT_API_URL = `${API_URL}/results`
 
   const pickImage = async () => {
   setIsLoading(true);
